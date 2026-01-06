@@ -1,0 +1,4 @@
+flask==2.3.0
+requests==2.31.0
+prometheus-client==0.18.0
+docker==6.1.0

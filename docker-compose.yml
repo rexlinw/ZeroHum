@@ -1,0 +1,184 @@
+version: '3.8'
+
+services:
+  # ============ Application Services ============
+  
+  # Stable application
+  app-stable:
+    container_name: app-stable
+    build:
+      context: ./app/stable
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5000"
+    environment:
+      - ENVIRONMENT=production
+      - FLASK_APP=app.py
+    networks:
+      - zerohum-network
+    restart: unless-stopped
+    labels:
+      - "app.version=stable"
+      - "app.service=demo-app"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Buggy application (for chaos testing)
+  app-buggy:
+    container_name: app-buggy
+    build:
+      context: ./app/buggy
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5000"
+    environment:
+      - ENVIRONMENT=testing
+      - FLASK_APP=app.py
+    networks:
+      - zerohum-network
+    restart: unless-stopped
+    labels:
+      - "app.version=buggy"
+      - "app.service=demo-app"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ============ Monitoring Stack ============
+
+  # Prometheus
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+    networks:
+      - zerohum-network
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+
+  # Grafana
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=
+      - TZ=UTC
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning-datasources.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./monitoring/grafana/provisioning-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+    networks:
+      - zerohum-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Node Exporter (for system metrics)
+  node-exporter:
+    container_name: node-exporter
+    image: prom/node-exporter:latest
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - zerohum-network
+    restart: unless-stopped
+
+  # cAdvisor (for container metrics)
+  cadvisor:
+    container_name: cadvisor
+    image: gcr.io/cadvisor/cadvisor:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    privileged: true
+    networks:
+      - zerohum-network
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+
+  # ============ Control Plane ============
+
+  # Main controller and dashboard
+  controller:
+    container_name: controller
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+      - DOCKER_COMPOSE_PATH=/app/docker-compose.yml
+      - DATA_DIR=/app/data
+      - LOG_LEVEL=INFO
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+      - ./docker-compose.yml:/app/docker-compose.yml:ro
+      - ./chaos_engine:/app/chaos_engine:ro
+      - ./controller:/app/controller:ro
+      - ./executor:/app/executor:ro
+    networks:
+      - zerohum-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - grafana
+      - app-stable
+      - app-buggy
+
+  # ============ Networks ============
+
+networks:
+  zerohum-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============ Volumes ============
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
