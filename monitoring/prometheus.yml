@@ -2,8 +2,8 @@
 # Monitors application health, container status, and system metrics
 
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 10s
+  evaluation_interval: 10s
   external_labels:
     monitor: 'zerohum-chaos'
     project: 'self-healing-devops'
@@ -24,13 +24,13 @@ scrape_configs:
     scrape_interval: 30s
     scrape_timeout: 10s
 
-  # Monitor stable application
+  # Monitor stable application - Port 5001
   - job_name: 'app-stable'
     metrics_path: '/metrics'
-    scrape_interval: 10s
-    scrape_timeout: 5s
+    scrape_interval: 5s
+    scrape_timeout: 4s
     static_configs:
-      - targets: ['app-stable:5000']
+      - targets: ['app-stable:5001']
         labels:
           instance: 'app-stable'
           version: 'stable'
@@ -39,17 +39,31 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: instance
       
-  # Monitor buggy application (when deployed)
+  # Monitor buggy application - Port 5002
   - job_name: 'app-buggy'
     metrics_path: '/metrics'
-    scrape_interval: 10s
-    scrape_timeout: 5s
+    scrape_interval: 5s
+    scrape_timeout: 4s
     static_configs:
-      - targets: ['app-buggy:5000']
+      - targets: ['app-buggy:5002']
         labels:
           instance: 'app-buggy'
           version: 'buggy'
           service: 'application'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+
+  # Monitor dashboard test metrics - Port 8000
+  - job_name: 'zerohum-dashboard'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    static_configs:
+      - targets: ['controller:8000']
+        labels:
+          instance: 'controller'
+          service: 'zerohum-test'
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance

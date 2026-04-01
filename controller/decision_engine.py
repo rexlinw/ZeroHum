@@ -8,9 +8,10 @@ for recovery actions without human intervention.
 import requests
 import logging
 import time
+import subprocess
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Optional
-import json
 import csv
 from pathlib import Path
 
@@ -36,18 +37,114 @@ class DecisionEngine:
         
         # Thresholds for decision making
         self.thresholds = {
-            'health_check_failure_rate': 0.3,  # 30% failure rate
+            'health_check_failure_rate': 0.1,  # 10% failure rate triggers degraded
             'error_rate_threshold': 0.25,      # 25% error rate
             'response_time_threshold': 5000,   # 5 seconds in ms
-            'container_down_threshold': 3,     # 3 consecutive failures
-            'rollback_threshold': 5,           # 5 consecutive health check failures
+            'consecutive_failures': 3,         # 3 consecutive failures trigger restart (increased tolerance)
+            'rollback_threshold': 5,           # 5 consecutive health check failures (increased tolerance)
         }
         
         # Decision rules
         self.max_retries = 3
         self.rollback_enabled = True
+        self.failure_count = {'app-stable': 0, 'app-buggy': 0}
+        self.last_healthy_check = {'app-stable': datetime.utcnow(), 'app-buggy': datetime.utcnow()}
         
         logger.info("Decision Engine initialized")
+    
+    def check_container_status(self, container_name: str) -> Dict:
+        """
+        Check actual Docker container status.
+        
+        Args:
+            container_name: Name of the container
+            
+        Returns:
+            Container status dict
+        """
+        try:
+            cmd = ['docker', 'inspect', container_name, '--format={{.State.Running}}']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            
+            status = {
+                'container': container_name,
+                'timestamp': datetime.utcnow().isoformat(),
+                'running': result.stdout.strip() == 'true',
+                'checked': True
+            }
+            
+            if result.returncode != 0:
+                status['running'] = False
+                logger.warning(f"Container {container_name} is DOWN")
+            
+            return status
+        except Exception as e:
+            logger.error(f"Failed to check container status: {str(e)}")
+            return {
+                'container': container_name,
+                'timestamp': datetime.utcnow().isoformat(),
+                'running': False,
+                'checked': False
+            }
+    
+    def check_health_endpoint(self, container_name: str, port: int = 5000) -> Dict:
+        """
+        Directly check the health endpoint of an application.
+        
+        Args:
+            container_name: Name of the container
+            port: Port to check on localhost
+            
+        Returns:
+            Health check result dict
+        """
+        # Port mapping
+        ports = {'app-stable': 5001, 'app-buggy': 5002}
+        port = ports.get(container_name, port)
+        
+        health_data = {
+            'container': container_name,
+            'timestamp': datetime.utcnow().isoformat(),
+            'is_healthy': False,
+            'http_status': 0,
+            'error': None
+        }
+        
+        try:
+            url = f'http://{container_name}:{port}/health'
+            response = requests.get(url, timeout=5)  # Increased timeout to 5 seconds
+            
+            health_data['http_status'] = response.status_code
+            
+            if response.status_code == 200:
+                health_data['is_healthy'] = True
+                try:
+                    data = response.json()
+                    health_data['status'] = data.get('status', 'unknown')
+                except:
+                    health_data['status'] = 'ok'
+                # Update last healthy check time
+                self.last_healthy_check[container_name] = datetime.utcnow()
+                logger.info(f"✓ Health check OK for {container_name}")
+            else:
+                health_data['is_healthy'] = False
+                health_data['error'] = f"HTTP {response.status_code}"
+                logger.warning(f"Health check for {container_name} returned {response.status_code}")
+        
+        except requests.ConnectionError as e:
+            health_data['is_healthy'] = False
+            health_data['error'] = 'Connection refused'
+            logger.warning(f"Cannot connect to {container_name}: connection issue")
+        except requests.Timeout:
+            health_data['is_healthy'] = False
+            health_data['error'] = 'Timeout (>5s)'
+            logger.warning(f"Health check timeout for {container_name} (slow response)")
+        except Exception as e:
+            health_data['is_healthy'] = False
+            health_data['error'] = str(e)
+            logger.warning(f"Health check had issue for {container_name}: {str(e)}")
+        
+        return health_data
     
     def query_prometheus(self, query: str, timeout: int = 10) -> Dict:
         """
@@ -148,7 +245,7 @@ class DecisionEngine:
     
     def analyze_system_state(self, container_name: str) -> Dict:
         """
-        Comprehensive analysis of system state.
+        Comprehensive analysis of system state using DIRECT checks.
         
         Args:
             container_name: Name of the container to analyze
@@ -156,28 +253,66 @@ class DecisionEngine:
         Returns:
             Analysis result dict
         """
-        health = self.get_container_health(container_name)
+        # Check container status
+        container_status = self.check_container_status(container_name)
         
+        # Check health endpoint
+        health_check = self.check_health_endpoint(container_name)
+        
+        # Determine analysis
         analysis = {
             'timestamp': datetime.utcnow().isoformat(),
             'container': container_name,
-            'health': health,
-            'status': 'healthy',
+            'container_status': container_status,
+            'health_check': health_check,
+            'status': 'unknown',
             'severity': 'none',
             'recommendation': 'continue',
             'confidence': 0.0
         }
         
-        # Determine severity based on metrics
-        if health['failure_rate'] >= self.thresholds['health_check_failure_rate']:
-            analysis['status'] = 'degraded'
-            analysis['severity'] = 'high'
-            analysis['confidence'] = health['failure_rate']
-        
-        if health['failed_checks'] >= self.thresholds['rollback_threshold']:
+        # Container is DOWN - CRITICAL!
+        if not container_status['running']:
             analysis['status'] = 'critical'
             analysis['severity'] = 'critical'
-            analysis['confidence'] = 0.95
+            analysis['recommendation'] = 'restart'
+            analysis['confidence'] = 0.99
+            self.failure_count[container_name] += 1
+            logger.error(f"CRITICAL: {container_name} container is DOWN!")
+            return analysis
+        
+        # Container is UP but health check failing
+        if container_status['running'] and not health_check['is_healthy']:
+            self.failure_count[container_name] += 1
+            
+            if self.failure_count[container_name] >= self.thresholds['rollback_threshold']:
+                analysis['status'] = 'critical'
+                analysis['severity'] = 'critical'
+                analysis['recommendation'] = 'rollback'
+                analysis['confidence'] = 0.95
+                logger.error(f"CRITICAL: {container_name} persistent health failures ({self.failure_count[container_name]}x)")
+            elif self.failure_count[container_name] >= self.thresholds['consecutive_failures']:
+                analysis['status'] = 'degraded'
+                analysis['severity'] = 'high'
+                analysis['recommendation'] = 'restart'
+                analysis['confidence'] = 0.85
+                logger.warning(f"DEGRADED: {container_name} multiple failures ({self.failure_count[container_name]}x)")
+            else:
+                # Single failure - just warn, don't mark as degraded yet
+                analysis['status'] = 'healthy'  # Give benefit of doubt on first failure
+                analysis['severity'] = 'low'
+                analysis['recommendation'] = 'monitor'
+                analysis['confidence'] = 0.7
+                logger.info(f"⚠ Transient check issue for {container_name} (will retry)")
+        
+        # Container UP and health check passing
+        elif container_status['running'] and health_check['is_healthy']:
+            analysis['status'] = 'healthy'
+            analysis['severity'] = 'none'
+            analysis['recommendation'] = 'continue'
+            analysis['confidence'] = 1.0
+            self.failure_count[container_name] = 0  # Reset failure count
+            logger.info(f"HEALTHY: {container_name} is running normally")
         
         return analysis
     
@@ -204,31 +339,32 @@ class DecisionEngine:
             'execution_priority': 0
         }
         
-        # Decision logic based on rules
+        # Decision logic based on severity
         if analysis['status'] == 'healthy':
             decision['action'] = 'none'
-            decision['reasoning'] = 'System is healthy. No action required.'
+            decision['reasoning'] = f"✓ {container_name} is healthy. Continuing normal operation."
             decision['execution_priority'] = 0
         
         elif analysis['status'] == 'degraded':
             decision['action'] = 'restart'
-            decision['reasoning'] = f"Health check failure rate is {analysis['confidence']:.2%}. Attempting restart."
-            decision['execution_priority'] = 1
+            decision['reasoning'] = f"⚠ {container_name} degraded ({analysis['severity']}). RESTARTING container..."
+            decision['execution_priority'] = 2
+            logger.warning(f"Decision: RESTART {container_name}")
         
         elif analysis['status'] == 'critical':
-            if self.rollback_enabled and current_version != 'stable':
+            if 'buggy' in container_name or current_version != 'stable':
                 decision['action'] = 'rollback'
-                decision['reasoning'] = f"System critical with {analysis['confidence']:.2%} failure rate. Rolling back to stable version."
+                decision['reasoning'] = f"🔴 {container_name} CRITICAL! Rolling back to stable version..."
                 decision['execution_priority'] = 3
+                logger.error(f"Decision: ROLLBACK {container_name}")
             else:
                 decision['action'] = 'restart'
-                decision['reasoning'] = "System critical. Attempting container restart."
+                decision['reasoning'] = f"🔴 {container_name} CRITICAL! Restarting container..."
                 decision['execution_priority'] = 2
+                logger.error(f"Decision: RESTART {container_name}")
         
         # Log decision
         self.decision_history.append(decision)
-        
-        logger.info(f"Decision made: {decision['action']} - {decision['reasoning']}")
         
         return decision
     

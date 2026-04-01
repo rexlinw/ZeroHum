@@ -181,6 +181,31 @@ class RecoveryExecutor:
             self._log_action('scale_service', service_name, False, duration)
             return False, duration
     
+    def isolate_service(self, service_name: str) -> Tuple[bool, float]:
+        """
+        Isolate a service by stopping it.
+        
+        Args:
+            service_name: Name of the service to isolate
+            
+        Returns:
+            Tuple of (success: bool, duration_seconds: float)
+        """
+        logger.warning(f"Isolating service: {service_name}")
+        
+        start_time = time.time()
+        success, output = self.run_command(['docker', 'stop', service_name])
+        duration = time.time() - start_time
+        
+        if success:
+            logger.warning(f"Service {service_name} isolated in {duration:.2f}s")
+            self._log_action('isolate_service', service_name, True, duration)
+            return True, duration
+        else:
+            logger.error(f"Failed to isolate {service_name}: {output}")
+            self._log_action('isolate_service', service_name, False, duration)
+            return False, duration
+    
     def execute_recovery_action(self, action: str, service_name: str,
                                severity: str = 'normal') -> Dict:
         """

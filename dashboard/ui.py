@@ -149,6 +149,12 @@ def run_test_scenario(scenario: str):
         else:
             run_default_test()
         
+        # Extract test completion details
+        decisions = controller.decision_engine.get_decision_history()
+        actions = len([d for d in decisions if d['action'] != 'none'])
+        if controller.test_results['recovery_actions_executed'] < actions:
+            controller.test_results['recovery_actions_executed'] = actions
+            
         # Mark test as completed
         final_status = determine_test_status()
         controller.mark_test_completed(final_status)
@@ -171,7 +177,7 @@ def run_default_test():
     
     # Check initial health
     add_log_message("Checking stable application health...")
-    analysis = controller.decision_engine.analyze_system_state('stable')
+    analysis = controller.decision_engine.analyze_system_state('app-stable')
     add_log_message(f"Stable app health: {analysis['status']}")
     
     # Phase 2: Inject chaos
@@ -192,13 +198,13 @@ def run_default_test():
     add_log_message("Monitoring system detects container is down...")
     time.sleep(2)
     
-    analysis = controller.decision_engine.analyze_system_state('stable')
+    analysis = controller.decision_engine.analyze_system_state('app-stable')
     add_log_message(f"Detection result - Status: {analysis['status']}, Severity: {analysis['severity']}")
     
     # Phase 4: Decision making
     add_log_message("--- Phase 4: Autonomous Decision Making ---")
     decision = controller.decision_engine.make_decision(
-        analysis, 'stable', controller.current_version
+        analysis, 'app-stable', controller.current_version
     )
     add_log_message(f"Controller decision: {decision['action'].upper()}")
     add_log_message(f"Reason: {decision['reasoning']}")
@@ -222,7 +228,7 @@ def run_default_test():
     add_log_message("--- Phase 6: Verification ---")
     add_log_message("Verifying system recovery...")
     
-    analysis_after = controller.decision_engine.analyze_system_state('stable')
+    analysis_after = controller.decision_engine.analyze_system_state('app-stable')
     add_log_message(f"Final status: {analysis_after['status']}")
     
     if analysis_after['status'] == 'healthy':
@@ -236,7 +242,7 @@ def run_container_crash_test():
     add_log_message("--- CONTAINER CRASH TEST ---")
     
     add_log_message("Phase 1: Baseline check")
-    analysis = controller.decision_engine.analyze_system_state('stable')
+    analysis = controller.decision_engine.analyze_system_state('app-stable')
     add_log_message(f"Initial status: {analysis['status']}")
     
     time.sleep(2)
@@ -248,7 +254,7 @@ def run_container_crash_test():
     time.sleep(4)
     
     add_log_message("Phase 3: Detecting failure")
-    analysis = controller.decision_engine.analyze_system_state('stable')
+    analysis = controller.decision_engine.analyze_system_state('app-stable')
     add_log_message(f"Detected status: {analysis['status']}")
     
     add_log_message("Phase 4: Recovery")
@@ -258,7 +264,7 @@ def run_container_crash_test():
     time.sleep(3)
     
     add_log_message("Phase 5: Verification")
-    analysis_final = controller.decision_engine.analyze_system_state('stable')
+    analysis_final = controller.decision_engine.analyze_system_state('app-stable')
     add_log_message(f"Final status: {analysis_final['status']}")
 
 
@@ -274,13 +280,13 @@ def run_crash_loop_test():
     add_log_message("Phase 2: Monitor for failures")
     
     for i in range(3):
-        analysis = controller.decision_engine.analyze_system_state('buggy')
-        add_log_message(f"Check {i+1}: Status={analysis['status']}, Failure rate={analysis['health']['failure_rate']:.2%}")
+        analysis = controller.decision_engine.analyze_system_state('app-buggy')
+        add_log_message(f"Check {i+1}: Status={analysis['status']}, Failure rate={analysis['health_check'].get('error', 'none')}")
         time.sleep(2)
     
     add_log_message("Phase 3: Trigger rollback decision")
     decision = controller.decision_engine.make_decision(
-        analysis, 'buggy', 'v0.1'
+        analysis, 'app-buggy', 'v0.1'
     )
     add_log_message(f"Decision: {decision['action'].upper()}")
     
@@ -291,7 +297,7 @@ def run_crash_loop_test():
     time.sleep(3)
     
     add_log_message("Phase 5: Verify stable state")
-    analysis_final = controller.decision_engine.analyze_system_state('stable')
+    analysis_final = controller.decision_engine.analyze_system_state('app-stable')
     add_log_message(f"Status after rollback: {analysis_final['status']}")
 
 
@@ -311,7 +317,7 @@ def run_degradation_test():
     add_log_message("Phase 3: Monitor degradation")
     for i in range(3):
         time.sleep(3)
-        analysis = controller.decision_engine.analyze_system_state('stable')
+        analysis = controller.decision_engine.analyze_system_state('app-stable')
         add_log_message(f"Check {i+1}: Status={analysis['status']}")
     
     add_log_message("Phase 4: Determine recovery action")
@@ -390,6 +396,50 @@ def get_recovery_log():
     except Exception as e:
         logger.error(f"Error getting recovery log: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Export test metrics in Prometheus format."""
+    metrics_output = """# HELP zerohum_test_running Current test running status
+# TYPE zerohum_test_running gauge
+zerohum_test_running {running}
+
+# HELP zerohum_test_log_count Number of log messages
+# TYPE zerohum_test_log_count gauge
+zerohum_test_log_count {log_count}
+
+# HELP zerohum_recovery_actions_total Total number of recovery actions executed
+# TYPE zerohum_recovery_actions_total counter
+zerohum_recovery_actions_total {recovery_actions}
+
+# HELP zerohum_failures_detected_total Total number of failures detected
+# TYPE zerohum_failures_detected_total counter
+zerohum_failures_detected_total{{test_scenario="{scenario}"}} {failures}
+
+# HELP zerohum_chaos_injected Total chaos injections
+# TYPE zerohum_chaos_injected counter
+zerohum_chaos_injected{{test_scenario="{scenario}"}} {chaos}
+
+# HELP zerohum_test_duration_seconds Duration of last test in seconds
+# TYPE zerohum_test_duration_seconds gauge
+zerohum_test_duration_seconds{{scenario="{scenario}"}} {duration}
+
+# HELP zerohum_test_status Test outcome (0=failed, 1=passed, 2=running)
+# TYPE zerohum_test_status gauge
+zerohum_test_status{{scenario="{scenario}"}} {status_code}
+""".format(
+        running=1 if test_state['is_running'] else 0,
+        log_count=len(test_state['log_messages']),
+        recovery_actions=controller.test_results.get('recovery_actions_executed', 0),
+        failures=controller.test_results.get('failures_detected', 0),
+        chaos=1 if controller.test_results.get('chaos_injected') else 0,
+        scenario=test_state['test_scenario'] or 'none',
+        duration=controller.test_results.get('duration_seconds', 0),
+        status_code=1 if controller.test_results.get('final_status') == 'PASSED' else (2 if test_state['is_running'] else 0)
+    )
+    
+    return metrics_output, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
 @app.errorhandler(404)

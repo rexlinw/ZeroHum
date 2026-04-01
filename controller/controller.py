@@ -9,11 +9,13 @@ import logging
 import time
 import json
 import threading
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
 from decision_engine import DecisionEngine
+from recovery import RecoveryExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class SystemController:
     
     def __init__(self, 
                  prometheus_url: str = 'http://prometheus:9090',
-                 polling_interval: int = 30,
+                 polling_interval: int = 5,  # Changed to 5 seconds for responsive testing
                  data_dir: str = '/app/data'):
         """
         Initialize the System Controller.
@@ -42,25 +44,29 @@ class SystemController:
         
         # Initialize components
         self.decision_engine = DecisionEngine(prometheus_url)
+        self.recovery_executor = RecoveryExecutor()
         
         # System state
         self.is_running = False
         self.current_version = 'stable'
         self.deployment_history = []
+        self.execution_log = []  # Track all recovery executions
         self.test_results = {
             'status': 'pending',
             'start_time': None,
             'end_time': None,
             'chaos_injected': None,
             'failures_detected': 0,
-            'recovery_actions': 0,
-            'final_status': 'unknown'
+            'recovery_actions_executed': 0,
+            'final_status': 'unknown',
+            'decisions_made': 0,
+            'conclusive': False
         }
         
         # Ensure data directory exists
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
-        logger.info("System Controller initialized")
+        logger.info("System Controller initialized with Recovery Executor")
     
     def update_version(self, version: str):
         """
@@ -80,38 +86,115 @@ class SystemController:
     
     def monitor_single_check(self) -> Dict:
         """
-        Perform a single monitoring check across all containers.
+        Perform a single monitoring check and EXECUTE recovery actions.
         
         Returns:
-            Results of the monitoring check
+            Results of the monitoring check with executions
         """
         results = {
             'timestamp': datetime.utcnow().isoformat(),
             'checks': [],
             'decisions': [],
-            'actions_recommended': 0
+            'executions': [],
+            'actions_executed': 0
         }
         
-        # Check both containers
-        for container in ['stable', 'buggy']:
-            # Analyze state
-            analysis = self.decision_engine.analyze_system_state(container)
-            
-            # Make decision
-            decision = self.decision_engine.make_decision(
-                analysis, 
-                container,
-                self.current_version
-            )
-            
-            results['checks'].append(analysis)
-            results['decisions'].append(decision)
-            
-            # Count recommended actions
-            if decision['action'] != 'none':
-                results['actions_recommended'] += 1
+        # Check BOTH containers with proper names
+        containers = [
+            ('app-stable', 5001),
+            ('app-buggy', 5002)
+        ]
+        
+        for container_name, port in containers:
+            try:
+                # Analyze state
+                analysis = self.decision_engine.analyze_system_state(container_name)
+                
+                # Make decision
+                decision = self.decision_engine.make_decision(
+                    analysis, 
+                    container_name,
+                    self.current_version
+                )
+                
+                results['checks'].append(analysis)
+                results['decisions'].append(decision)
+                
+                # EXECUTE recovery action if needed
+                if decision['action'] != 'none':
+                    logger.warning(f"EXECUTING: {decision['action'].upper()} for {container_name}")
+                    
+                    execution = self._execute_recovery(
+                        container_name,
+                        decision['action'],
+                        analysis['severity']
+                    )
+                    
+                    results['executions'].append(execution)
+                    results['actions_executed'] += 1
+                    self.test_results['recovery_actions_executed'] += 1
+                    self.execution_log.append(execution)
+                    
+            except Exception as e:
+                logger.error(f"Error processing {container_name}: {str(e)}")
         
         return results
+    
+    def _execute_recovery(self, container_name: str, action: str, severity: str) -> Dict:
+        """
+        Execute a recovery action.
+        
+        Args:
+            container_name: Container to act on
+            action: Action to execute (restart, rollback, etc)
+            severity: Severity level (low, medium, high, critical)
+            
+        Returns:
+            Execution result
+        """
+        execution = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'container': container_name,
+            'action': action,
+            'severity': severity,
+            'success': False,
+            'duration_seconds': 0,
+            'error': None
+        }
+        
+        try:
+            if action == 'restart':
+                success, duration = self.recovery_executor.restart_container(container_name)
+                execution['success'] = success
+                execution['duration_seconds'] = duration
+                if not success:
+                    execution['error'] = 'Restart failed'
+                logger.warning(f"✓ RESTART {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
+            
+            elif action == 'rollback':
+                success, duration = self.recovery_executor.rollback_to_stable(container_name)
+                execution['success'] = success
+                execution['duration_seconds'] = duration
+                if not success:
+                    execution['error'] = 'Rollback failed'
+                logger.warning(f"✓ ROLLBACK {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
+            
+            elif action == 'isolate':
+                # Isolate the service (stop it)
+                success, duration = self.recovery_executor.isolate_service(container_name)
+                execution['success'] = success
+                execution['duration_seconds'] = duration
+                if not success:
+                    execution['error'] = 'Isolation failed'
+                logger.warning(f"✓ ISOLATE {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
+            
+            return execution
+        
+        except Exception as e:
+            logger.error(f"Failed to execute {action} on {container_name}: {str(e)}")
+            execution['success'] = False
+            execution['error'] = str(e)
+            return execution
     
     def save_test_results(self):
         """Save test results to JSON file."""
@@ -184,8 +267,10 @@ class SystemController:
             'end_time': None,
             'chaos_injected': None,
             'failures_detected': 0,
-            'recovery_actions': 0,
-            'final_status': 'unknown'
+            'recovery_actions_executed': 0,
+            'final_status': 'unknown',
+            'decisions_made': 0,
+            'conclusive': False
         }
         
         self.decision_engine.reset()
@@ -203,12 +288,13 @@ class SystemController:
         self.test_results['end_time'] = datetime.utcnow().isoformat()
         self.test_results['final_status'] = final_status
         
-        # Calculate statistics
+        # Calculate and preserve statistics
         self.test_results['failures_detected'] = len([
             d for d in self.decision_engine.get_decision_history()
             if d['action'] != 'none'
         ])
-        self.test_results['recovery_actions'] = len(self.decision_engine.get_recovery_log())
+        # Note: recovery_actions_executed is incremented during test execution,
+        # don't overwrite it - just preserve it
         
         self.save_test_results()
         self.save_recovery_log()

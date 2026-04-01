@@ -1,4 +1,4 @@
-/* ZEROHUM-CHAOS Dashboard JavaScript */
+/* ZEROHUM-CHAOS Dashboard JavaScript - Enhanced */
 
 // API base URL
 const API_BASE = window.location.origin;
@@ -6,13 +6,17 @@ const API_BASE = window.location.origin;
 // State management
 let testState = {
     isRunning: false,
-    currentScenario: 'default'
+    currentScenario: 'default',
+    logCount: 0
 };
 
 // Initialize dashboard on load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Dashboard loaded');
+    console.log('✓ Dashboard initialized');
     updateSystemInfo();
+    
+    // Add keyboard shortcuts
+    setupKeyboardShortcuts();
     
     // Update system info every 5 seconds
     setInterval(updateSystemInfo, 5000);
@@ -26,20 +30,40 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
+ * Setup keyboard shortcuts
+ */
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+Enter to start test
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            if (!testState.isRunning) {
+                startTest();
+            }
+        }
+        // Escape to stop test
+        if (e.key === 'Escape' && testState.isRunning) {
+            stopTest();
+        }
+    });
+}
+
+/**
  * Start a reliability test
  */
 async function startTest() {
     if (testState.isRunning) {
-        alert('Test already running');
+        showNotification('Test already running', 'warning');
         return;
     }
 
     const scenario = document.getElementById('scenarioSelect').value;
     testState.isRunning = true;
     testState.currentScenario = scenario;
+    testState.logCount = 0;
 
     // Update UI
     document.getElementById('runBtn').disabled = true;
+    document.getElementById('runBtn').classList.add('loading');
     document.getElementById('stopBtn').disabled = false;
     document.getElementById('progressText').textContent = 'Starting test...';
 
@@ -53,21 +77,23 @@ async function startTest() {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to start test');
+            throw new Error(`Server error: ${response.statusText}`);
         }
 
         const data = await response.json();
-        console.log('Test started:', data);
+        console.log('✓ Test started:', data.scenario);
+        showNotification(`Test started: ${data.scenario}`, 'success');
 
         // Start polling for updates
         updateTestLogs();
         pollTestStatus();
 
     } catch (error) {
-        console.error('Error starting test:', error);
-        alert('Error starting test: ' + error.message);
+        console.error('✗ Error starting test:', error);
+        showNotification('Error starting test: ' + error.message, 'error');
         testState.isRunning = false;
         document.getElementById('runBtn').disabled = false;
+        document.getElementById('runBtn').classList.remove('loading');
         document.getElementById('stopBtn').disabled = true;
     }
 }
@@ -87,13 +113,16 @@ async function stopTest() {
         if (response.ok) {
             testState.isRunning = false;
             document.getElementById('runBtn').disabled = false;
+            document.getElementById('runBtn').classList.remove('loading');
             document.getElementById('stopBtn').disabled = true;
-            document.getElementById('progressText').textContent = 'Test stopped';
+            document.getElementById('progressText').textContent = 'Test stopped by user';
             addLog('Test stopped by user', 'warning');
             updateResults();
+            showNotification('Test stopped', 'warning');
         }
     } catch (error) {
-        console.error('Error stopping test:', error);
+        console.error('✗ Error stopping test:', error);
+        showNotification('Error stopping test', 'error');
     }
 }
 
@@ -107,8 +136,9 @@ async function pollTestStatus() {
 
     try {
         const response = await fetch(`${API_BASE}/api/status`);
+        if (!response.ok) throw new Error('Failed to fetch status');
+        
         const data = await response.json();
-
         const controller = data.controller_status;
 
         // Update progress
@@ -118,8 +148,11 @@ async function pollTestStatus() {
             if (results.status === 'completed') {
                 testState.isRunning = false;
                 document.getElementById('runBtn').disabled = false;
+                document.getElementById('runBtn').classList.remove('loading');
                 document.getElementById('stopBtn').disabled = true;
-                document.getElementById('progressText').textContent = `Test completed: ${results.final_status.toUpperCase()}`;
+                const statusText = results.final_status.toUpperCase();
+                document.getElementById('progressText').textContent = `Test completed: ${statusText}`;
+                showNotification(`Test completed with status: ${statusText}`, 'success');
                 updateResults();
                 return;
             }
@@ -129,7 +162,7 @@ async function pollTestStatus() {
         setTimeout(pollTestStatus, 2000);
 
     } catch (error) {
-        console.error('Error polling status:', error);
+        console.error('✗ Error polling status:', error);
     }
 }
 
@@ -139,21 +172,23 @@ async function pollTestStatus() {
 async function updateTestLogs() {
     try {
         const response = await fetch(`${API_BASE}/api/test/logs`);
+        if (!response.ok) throw new Error('Failed to fetch logs');
+        
         const data = await response.json();
-
         const logContainer = document.getElementById('logContainer');
         const logs = data.logs;
 
         if (logs.length > 0) {
             // Check if we need to clear old logs
             const existingLogs = logContainer.querySelectorAll('.log-entry');
-            if (existingLogs.length === 0) {
+            if (existingLogs.length === 0 && logContainer.querySelector('.log-placeholder')) {
                 logContainer.innerHTML = '';
             }
 
             // Append new logs
             logs.forEach(log => {
                 if (!document.querySelector(`[data-log-time="${log.timestamp}"]`)) {
+                    testState.logCount++;
                     const entry = document.createElement('div');
                     entry.className = 'log-entry';
                     entry.setAttribute('data-log-time', log.timestamp);
@@ -173,11 +208,11 @@ async function updateTestLogs() {
             });
 
             // Update progress
-            updateProgressBar(logs.length);
+            updateProgressBar(testState.logCount);
         }
 
     } catch (error) {
-        console.error('Error updating logs:', error);
+        console.error('✗ Error updating logs:', error);
     }
 }
 
@@ -187,8 +222,9 @@ async function updateTestLogs() {
 async function updateResults() {
     try {
         const response = await fetch(`${API_BASE}/api/results`);
+        if (!response.ok) throw new Error('Failed to fetch results');
+        
         const results = await response.json();
-
         const container = document.getElementById('resultsContainer');
 
         if (results.status === 'pending' || results.status === 'idle') {
@@ -223,7 +259,7 @@ async function updateResults() {
         html += `
             <div class="result-card">
                 <div class="result-card-label">Recovery Actions</div>
-                <div class="result-card-value">${results.recovery_actions || 0}</div>
+                <div class="result-card-value">${results.recovery_actions_executed || 0}</div>
                 <div class="result-card-status">executed</div>
             </div>
         `;
@@ -254,7 +290,7 @@ async function updateResults() {
         container.innerHTML = html;
 
     } catch (error) {
-        console.error('Error updating results:', error);
+        console.error('✗ Error updating results:', error);
     }
 }
 
@@ -264,8 +300,9 @@ async function updateResults() {
 async function updateSystemInfo() {
     try {
         const response = await fetch(`${API_BASE}/api/status`);
+        if (!response.ok) throw new Error('Failed to fetch system info');
+        
         const status = await response.json();
-
         const container = document.getElementById('sysInfoContainer');
         let html = '';
 
@@ -274,7 +311,7 @@ async function updateSystemInfo() {
             <div class="sys-info-item">
                 <div class="sys-info-label">Prometheus</div>
                 <div class="sys-info-value">
-                    <a href="${status.prometheus_url}" target="_blank">http://localhost:9090</a>
+                    <a href="http://localhost:9090/graph?g0.expr=up&g0.tab=0" target="_blank" title="Open Prometheus">http://localhost:9090/graph</a>
                 </div>
             </div>
         `;
@@ -284,7 +321,7 @@ async function updateSystemInfo() {
             <div class="sys-info-item">
                 <div class="sys-info-label">Grafana</div>
                 <div class="sys-info-value">
-                    <a href="${status.grafana_url}" target="_blank">http://localhost:3000</a>
+                    <a href="http://localhost:3000/d/zerohum-test-metrics" target="_blank" title="Open Grafana">http://localhost:3000/d/...</a>
                 </div>
             </div>
         `;
@@ -294,7 +331,7 @@ async function updateSystemInfo() {
         html += `
             <div class="sys-info-item">
                 <div class="sys-info-label">Current Version</div>
-                <div class="sys-info-value">${controller.current_version}</div>
+                <div class="sys-info-value">${controller.current_version || 'Unknown'}</div>
             </div>
         `;
 
@@ -302,7 +339,7 @@ async function updateSystemInfo() {
         html += `
             <div class="sys-info-item">
                 <div class="sys-info-label">Decisions Made</div>
-                <div class="sys-info-value">${controller.decision_history_count}</div>
+                <div class="sys-info-value">${controller.decision_history_count || 0}</div>
             </div>
         `;
 
@@ -310,7 +347,7 @@ async function updateSystemInfo() {
         html += `
             <div class="sys-info-item">
                 <div class="sys-info-label">Recovery Actions</div>
-                <div class="sys-info-value">${controller.recovery_actions_count}</div>
+                <div class="sys-info-value">${controller.recovery_actions_count || 0}</div>
             </div>
         `;
 
@@ -325,7 +362,9 @@ async function updateSystemInfo() {
         container.innerHTML = html;
 
     } catch (error) {
-        console.error('Error updating system info:', error);
+        console.error('✗ Error updating system info:', error);
+        document.getElementById('sysInfoContainer').innerHTML = 
+            '<p style="color: #f44336;">Error loading system information</p>';
     }
 }
 
@@ -334,6 +373,8 @@ async function updateSystemInfo() {
  */
 function clearLogs() {
     document.getElementById('logContainer').innerHTML = '<p class="log-placeholder">Test logs cleared</p>';
+    testState.logCount = 0;
+    updateProgressBar(0);
 }
 
 /**
@@ -346,6 +387,7 @@ function addLog(message, level = 'info') {
         logContainer.innerHTML = '';
     }
 
+    testState.logCount++;
     const entry = document.createElement('div');
     entry.className = 'log-entry';
 
@@ -367,13 +409,13 @@ function addLog(message, level = 'info') {
  */
 function updateProgressBar(logCount) {
     const maxLogs = 50;
-    const progress = Math.min((logCount / maxLogs) * 100, 95);
+    const progress = Math.min((logCount / maxLogs) * 100, 100);
     
     const fill = document.getElementById('progressFill');
     fill.style.width = progress + '%';
     
     const percentage = Math.round(progress);
-    fill.textContent = percentage + '%';
+    fill.textContent = percentage > 0 ? percentage + '%' : '';
 }
 
 /**
@@ -400,4 +442,37 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Show notification toast
+ */
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#F44336' : type === 'warning' ? '#FF9800' : '#2196F3'};
+        color: white;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        font-weight: 600;
+        animation: slideDown 0.3s ease forwards;
+    `;
+    
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideUp 0.3s ease forwards';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 4000);
 }
