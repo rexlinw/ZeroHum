@@ -19,13 +19,17 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
+if docker compose version > /dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose > /dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+else
     echo "❌ Docker Compose is not installed"
     exit 1
 fi
 
 echo "✓ Docker found: $(docker --version)"
-echo "✓ Docker Compose found: $(docker-compose --version)"
+echo "✓ Docker Compose found: $($COMPOSE_CMD version)"
 echo ""
 
 # Create data directory
@@ -37,7 +41,7 @@ echo ""
 
 # Build images
 echo "[3/5] Building Docker images..."
-docker-compose build --no-cache
+$COMPOSE_CMD build --no-cache
 
 if [ $? -eq 0 ]; then
     echo "✓ Images built successfully"
@@ -49,7 +53,7 @@ echo ""
 
 # Start services
 echo "[4/5] Starting services..."
-docker-compose up -d
+$COMPOSE_CMD up -d
 
 if [ $? -eq 0 ]; then
     echo "✓ Services started"
@@ -75,8 +79,8 @@ echo "  Stable App:   http://localhost:5001"
 echo "  Buggy App:    http://localhost:5002"
 echo ""
 echo "To view logs:"
-echo "  docker-compose logs -f"
+echo "  $COMPOSE_CMD logs -f"
 echo ""
 echo "To stop the system:"
-echo "  docker-compose down"
+echo "  $COMPOSE_CMD down"
 echo ""

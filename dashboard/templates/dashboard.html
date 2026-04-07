@@ -45,10 +45,10 @@
 
                     <div class="button-group">
                         <button id="runBtn" class="btn btn-primary" onclick="startTest()">
-                            ▶ Run Reliability Test
+                            Run Reliability Test
                         </button>
                         <button id="stopBtn" class="btn btn-danger" onclick="stopTest()" disabled>
-                            ⏹ Stop Test
+                            Stop Test
                         </button>
                     </div>
                 </div>
@@ -111,6 +111,77 @@
                 <div id="sysInfoContainer" class="sys-info-container">
                     <p>Loading system information...</p>
                 </div>
+            </section>
+
+            <!-- ML Predictive Failure Detection -->
+            <section class="panel predictions-panel">
+                <h2>Predictive Failure Detection</h2>
+                <p class="panel-description">
+                    ML-powered early warning system that predicts potential failures before they happen.
+                </p>
+                <div class="predictions-content">
+                    <div id="predictionsContainer" class="predictions-container">
+                        <p class="predictions-placeholder">Run tests to train ML models for predictions...</p>
+                    </div>
+                    <div id="recommendationsContainer" class="recommendations-container hidden">
+                        <h3>Recommendations</h3>
+                        <ul id="recommendationsList"></ul>
+                    </div>
+                </div>
+                <div class="predictions-controls">
+                    <button onclick="trainPredictor()" class="btn btn-small">Train Models</button>
+                    <button onclick="getPredictions()" class="btn btn-small">Get Predictions</button>
+                </div>
+            </section>
+
+            <!-- SLO-Driven Testing -->
+            <section class="panel slo-panel">
+                <h2>SLO-Driven Testing</h2>
+                <p class="panel-description">
+                    Define Service Level Objectives and validate them through chaos testing. Identify the breaking points of your system.
+                </p>
+                <div class="slos-content">
+                    <div id="slosContainer" class="slos-container">
+                        <p class="slos-placeholder">Loading SLO configuration...</p>
+                    </div>
+                    <div id="sloReportContainer" class="slo-report-container hidden">
+                        <h3>SLO Compliance Report</h3>
+                        <div id="sloReportDetails"></div>
+                    </div>
+                </div>
+                <div class="slo-controls">
+                    <button onclick="getSLOStatus()" class="btn btn-small">Refresh SLOs</button>
+                    <button onclick="getSLOReport()" class="btn btn-small">View Report</button>
+                </div>
+            </section>
+
+            <!-- Health Chat Assistant -->
+            <section class="panel chat-panel">
+                <h2>Health Chat Assistant</h2>
+                <p class="panel-description">
+                    Ask questions about test health, failures, recovery actions, and live metrics.
+                </p>
+                <div id="chatMessages" class="chat-messages">
+                    <div class="chat-message assistant">
+                        <div class="chat-meta">Assistant</div>
+                        <div class="chat-bubble">Ask me anything about test health and metrics.</div>
+                    </div>
+                </div>
+                <div class="chat-input-row">
+                    <input id="chatInput" type="text" placeholder="Example: Why did the last test pass?" maxlength="500">
+                    <button id="chatSendBtn" class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+                </div>
+                <div id="quickQuestionsBox" class="quick-questions-box hidden">
+                    <button class="quick-question-btn" onclick="askQuickQuestion('Summarize latest test health in 3 bullet points.')">Latest test health summary</button>
+                    <button class="quick-question-btn" onclick="askQuickQuestion('Why did the latest test pass or fail?')">Why latest test passed/failed</button>
+                    <button class="quick-question-btn" onclick="askQuickQuestion('What failures were detected and what recovery actions executed?')">Failures and recovery actions</button>
+                    <button class="quick-question-btn" onclick="askQuickQuestion('Is app-stable healthy right now? Include container and HTTP status.')">Current stable app health</button>
+                    <button class="quick-question-btn" onclick="askQuickQuestion('Is app-buggy healthy right now? Include container and HTTP status.')">Current buggy app health</button>
+                    <button class="quick-question-btn" onclick="askQuickQuestion('Compare current stable and buggy service health in a short table.')">Compare stable vs buggy health</button>
+                    <button class="quick-question-btn" onclick="askQuickQuestion('What are the key metrics I should watch next?')">Recommended metrics to watch</button>
+                    <button class="quick-question-btn" onclick="askQuickQuestion('Give me a quick incident-style timeline from the most recent logs.')">Recent incident timeline</button>
+                </div>
+                <button id="quickQuestionsToggle" class="quick-questions-toggle" onclick="toggleQuickQuestions()" title="Quick Questions">Q</button>
             </section>
         </main>
 

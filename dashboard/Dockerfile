@@ -8,18 +8,21 @@ RUN apt-get update && \
     ca-certificates \
     curl \
     gnupg \
+    dpkg \
     && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable" > /etc/apt/sources.list.d/docker.list \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian trixie stable" > /etc/apt/sources.list.d/docker.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
     docker-ce-cli \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir flask requests prometheus-client docker
+RUN pip install --no-cache-dir flask requests prometheus-client docker pandas numpy scikit-learn
 
 # Copy application files
 COPY ui.py .
+COPY ml_predictor.py .
+COPY slo_manager.py .
 COPY templates/ ./templates/
 COPY static/ ./static/
 

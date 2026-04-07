@@ -125,7 +125,7 @@ class DecisionEngine:
                     health_data['status'] = 'ok'
                 # Update last healthy check time
                 self.last_healthy_check[container_name] = datetime.utcnow()
-                logger.info(f"✓ Health check OK for {container_name}")
+                logger.info(f"Health check OK for {container_name}")
             else:
                 health_data['is_healthy'] = False
                 health_data['error'] = f"HTTP {response.status_code}"
@@ -303,7 +303,7 @@ class DecisionEngine:
                 analysis['severity'] = 'low'
                 analysis['recommendation'] = 'monitor'
                 analysis['confidence'] = 0.7
-                logger.info(f"⚠ Transient check issue for {container_name} (will retry)")
+                logger.info(f"Transient check issue for {container_name} (will retry)")
         
         # Container UP and health check passing
         elif container_status['running'] and health_check['is_healthy']:
@@ -342,24 +342,24 @@ class DecisionEngine:
         # Decision logic based on severity
         if analysis['status'] == 'healthy':
             decision['action'] = 'none'
-            decision['reasoning'] = f"✓ {container_name} is healthy. Continuing normal operation."
+            decision['reasoning'] = f"{container_name} is healthy. Continuing normal operation."
             decision['execution_priority'] = 0
         
         elif analysis['status'] == 'degraded':
             decision['action'] = 'restart'
-            decision['reasoning'] = f"⚠ {container_name} degraded ({analysis['severity']}). RESTARTING container..."
+            decision['reasoning'] = f"{container_name} degraded ({analysis['severity']}). RESTARTING container..."
             decision['execution_priority'] = 2
             logger.warning(f"Decision: RESTART {container_name}")
         
         elif analysis['status'] == 'critical':
             if 'buggy' in container_name or current_version != 'stable':
                 decision['action'] = 'rollback'
-                decision['reasoning'] = f"🔴 {container_name} CRITICAL! Rolling back to stable version..."
+                decision['reasoning'] = f"{container_name} CRITICAL! Rolling back to stable version..."
                 decision['execution_priority'] = 3
                 logger.error(f"Decision: ROLLBACK {container_name}")
             else:
                 decision['action'] = 'restart'
-                decision['reasoning'] = f"🔴 {container_name} CRITICAL! Restarting container..."
+                decision['reasoning'] = f"{container_name} CRITICAL! Restarting container..."
                 decision['execution_priority'] = 2
                 logger.error(f"Decision: RESTART {container_name}")
         

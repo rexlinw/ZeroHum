@@ -169,7 +169,7 @@ class SystemController:
                 execution['duration_seconds'] = duration
                 if not success:
                     execution['error'] = 'Restart failed'
-                logger.warning(f"✓ RESTART {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
+                logger.warning(f"RESTART {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
             
             elif action == 'rollback':
                 success, duration = self.recovery_executor.rollback_to_stable(container_name)
@@ -177,7 +177,7 @@ class SystemController:
                 execution['duration_seconds'] = duration
                 if not success:
                     execution['error'] = 'Rollback failed'
-                logger.warning(f"✓ ROLLBACK {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
+                logger.warning(f"ROLLBACK {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
             
             elif action == 'isolate':
                 # Isolate the service (stop it)
@@ -186,7 +186,7 @@ class SystemController:
                 execution['duration_seconds'] = duration
                 if not success:
                     execution['error'] = 'Isolation failed'
-                logger.warning(f"✓ ISOLATE {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
+                logger.warning(f"ISOLATE {container_name}: {'SUCCESS' if success else 'FAILED'} ({duration:.2f}s)")
             
             return execution
         

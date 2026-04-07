@@ -8,10 +8,19 @@ echo "║        ZEROHUM-CHAOS System Health Check              ║"
 echo "╚════════════════════════════════════════════════════════╝"
 echo ""
 
+if docker compose version > /dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose > /dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo "✗ Docker Compose is not available"
+    exit 1
+fi
+
 # Check containers
 echo "Container Status:"
 echo "─────────────────────────────────────────────────────────"
-docker-compose ps
+$COMPOSE_CMD ps
 echo ""
 
 # Check services
