@@ -20,18 +20,21 @@ pipeline {
                 echo '🔍 Verifying prerequisites...'
                 sh '''
                     echo "Checking Docker availability..."
-                    if ! command -v docker &> /dev/null; then
+                    if ! command -v docker >/dev/null 2>&1; then
                         echo "❌ ERROR: Docker is not installed or not in PATH"
-                        echo "Please ensure Docker is installed and Jenkins has permission to use it"
+                        echo "If Jenkins runs in Docker, start it with Docker CLI + socket access:"
+                        echo "docker run -d --name jenkins -p 8080:8080 -p 50000:50000"
+                        echo "  -v jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock"
+                        echo "  --user root jenkins/jenkins:lts"
                         exit 1
                     fi
                     
                     echo "✅ Docker found: $(docker --version)"
                     
                     echo "Checking Docker daemon..."
-                    if ! docker info &> /dev/null; then
+                    if ! docker info >/dev/null 2>&1; then
                         echo "❌ ERROR: Docker daemon is not running or Jenkins cannot access it"
-                        echo "Please start Docker and ensure Jenkins user is in docker group"
+                        echo "Ensure Docker is running and Jenkins can access /var/run/docker.sock"
                         exit 1
                     fi
                     echo "✅ Docker daemon is accessible"
@@ -219,7 +222,7 @@ pipeline {
     post {
         always {
             echo '📋 Pipeline execution completed'
-            sh 'docker compose ps || true'
+            sh 'command -v docker >/dev/null 2>&1 && docker compose ps || true'
         }
         success {
             echo '✅ Deployment successful!'
