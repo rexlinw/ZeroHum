@@ -16,13 +16,13 @@ ZEROHUM-CHAOS is an autonomous, self-healing DevOps system that validates applic
 
 ## Core Features
 
-✅ **Autonomous Failure Detection** - Monitors application health using Prometheus metrics  
-✅ **Intelligent Decision Making** - Python-based controller that analyzes system state and recommends actions  
-✅ **Automatic Recovery** - Executes restart, rollback, and remediation without approval  
-✅ **Controlled Chaos Injection** - Simulates real-world failures (container stops, process kills, CPU stress)  
-✅ **Live Dashboard** - One-click test execution with real-time log streaming  
-✅ **Complete Observability** - Prometheus + Grafana for metrics and visualization  
-✅ **Comprehensive Logging** - All decisions and actions logged to JSON/CSV for analysis  
+ **Autonomous Failure Detection** - Monitors application health using Prometheus metrics  
+ **Intelligent Decision Making** - Python-based controller that analyzes system state and recommends actions  
+ **Automatic Recovery** - Executes restart, rollback, and remediation without approval  
+ **Controlled Chaos Injection** - Simulates real-world failures (container stops, process kills, CPU stress)  
+ **Live Dashboard** - One-click test execution with real-time log streaming  
+ **Complete Observability** - Prometheus + Grafana for metrics and visualization  
+ **Comprehensive Logging** - All decisions and actions logged to JSON/CSV for analysis  
 
 ---
 
