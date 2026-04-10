@@ -207,7 +207,9 @@ fix_jenkins_docker() {
         set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
-        apt-get install -y docker.io docker-compose-plugin
+        if ! apt-get install -y docker.io docker-compose-plugin; then
+            apt-get install -y docker.io docker-compose
+        fi
     '
 
     log_info "Validating Docker access inside Jenkins container..."

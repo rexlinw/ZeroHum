@@ -12,6 +12,7 @@ pipeline {
         REGISTRY = 'docker.io'
         REGISTRY_CREDENTIALS = 'docker-hub-credentials'
         SLACK_CHANNEL = '#devops-alerts'
+        PATH = '/usr/local/bin:/opt/homebrew/bin:/Applications/Docker.app/Contents/Resources/bin:/usr/bin:/bin:/usr/sbin:/sbin'
     }
     
     stages {
@@ -22,6 +23,7 @@ pipeline {
                     echo "Checking Docker availability..."
                     if ! command -v docker >/dev/null 2>&1; then
                         echo "❌ ERROR: Docker is not installed or not in PATH"
+                        echo "For host Jenkins on macOS, add /usr/local/bin to Jenkins PATH or set PATH in pipeline environment"
                         echo "If Jenkins runs in Docker, start it with Docker CLI + socket access:"
                         echo "docker run -d --name jenkins -p 8080:8080 -p 50000:50000"
                         echo "  -v jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock"
