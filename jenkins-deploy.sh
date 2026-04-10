@@ -20,6 +20,21 @@ PROJECT_NAME="zerohum-chaos"
 JENKINS_URL="${JENKINS_URL:-http://localhost:8080}"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 
+compose_cmd() {
+    if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+        return
+    fi
+
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+        return
+    fi
+
+    log_error "Neither 'docker compose' nor 'docker-compose' is available"
+    return 127
+}
+
 ###############################################################################
 # Helper Functions
 ###############################################################################
@@ -48,28 +63,31 @@ check_prerequisites() {
     log_info "Checking prerequisites..."
     
     # Check Docker
-    if ! command -v docker &> /dev/null; then
+    if ! command -v docker >/dev/null 2>&1; then
         log_error "Docker is not installed"
         exit 1
     fi
     log_success "Docker found: $(docker --version)"
     
     # Check Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
+    if docker compose version >/dev/null 2>&1; then
+        log_success "Docker Compose found: $(docker compose version | head -1)"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        log_success "Docker Compose found: $(docker-compose --version)"
+    else
         log_error "Docker Compose is not installed"
         exit 1
     fi
-    log_success "Docker Compose found: $(docker-compose --version)"
     
     # Check Git
-    if ! command -v git &> /dev/null; then
+    if ! command -v git >/dev/null 2>&1; then
         log_error "Git is not installed"
         exit 1
     fi
     log_success "Git found: $(git --version)"
     
     # Check Docker daemon
-    if ! docker ps &> /dev/null; then
+    if ! docker ps >/dev/null 2>&1; then
         log_error "Docker daemon is not running or no permission"
         exit 1
     fi
@@ -156,6 +174,51 @@ setup_jenkins_cli() {
     log_success "Jenkins CLI is ready"
 }
 
+fix_jenkins_docker() {
+    log_info "Configuring Jenkins container with Docker CLI and Compose support..."
+
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is required on the host before running this command"
+        exit 1
+    fi
+
+    if docker ps --format '{{.Names}}' | grep -qx 'jenkins'; then
+        log_info "Jenkins container is already running"
+    elif docker ps -a --format '{{.Names}}' | grep -qx 'jenkins'; then
+        log_info "Starting existing Jenkins container..."
+        docker start jenkins >/dev/null
+        log_success "Existing Jenkins container started"
+    else
+        log_info "Creating Jenkins container with Docker socket mount..."
+        docker volume create jenkins_home >/dev/null
+        docker run -d \
+            --name jenkins \
+            -p 8080:8080 \
+            -p 50000:50000 \
+            -v jenkins_home:/var/jenkins_home \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            --user root \
+            jenkins/jenkins:lts >/dev/null
+        log_success "Jenkins container created"
+    fi
+
+    log_info "Installing Docker CLI + Compose plugin inside Jenkins container..."
+    docker exec -u 0 jenkins bash -lc '
+        set -e
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y docker.io docker-compose-plugin
+    '
+
+    log_info "Validating Docker access inside Jenkins container..."
+    docker exec jenkins docker --version
+    docker exec jenkins docker compose version
+    docker exec jenkins docker ps >/dev/null
+
+    log_success "Jenkins is ready to run Docker-based pipelines"
+    log_info "Jenkins URL: ${JENKINS_URL}"
+}
+
 trigger_jenkins_build() {
     local job_name="$1"
     local token="$2"
@@ -193,15 +256,15 @@ deploy() {
     
     # Stop existing containers
     log_info "Stopping existing containers..."
-    docker-compose down || true
+    compose_cmd down || true
     
     # Build images
     log_info "Building Docker images..."
-    docker-compose build
+    compose_cmd build
     
     # Start containers
     log_info "Starting containers..."
-    docker-compose up -d
+    compose_cmd up -d
     
     # Wait for services
     log_info "Waiting for services to stabilize (30 seconds)..."
@@ -224,19 +287,19 @@ rollback() {
     local latest_backup=$(ls -t backups | head -1)
     log_info "Using backup: $latest_backup"
     
-    docker-compose down || true
+    compose_cmd down || true
     log_success "Rollback completed (containers stopped)"
 }
 
 stop_services() {
     log_info "Stopping all services..."
-    docker-compose down
+    compose_cmd down
     log_success "All services stopped"
 }
 
 start_services() {
     log_info "Starting all services..."
-    docker-compose up -d
+    compose_cmd up -d
     sleep 15
     health_check
     log_success "All services started"
@@ -247,7 +310,7 @@ view_logs() {
     service="${service:-controller}"
     
     log_info "Viewing logs for: $service"
-    docker-compose logs --tail=100 -f "$service"
+    compose_cmd logs --tail=100 -f "$service"
 }
 
 ###############################################################################
@@ -257,7 +320,7 @@ view_logs() {
 status() {
     log_info "Current deployment status:"
     echo ""
-    docker-compose ps
+    compose_cmd ps
     echo ""
     health_check
 }
@@ -297,7 +360,7 @@ validate_environment() {
     log_success "docker-compose.yml found"
     
     # Check docker-compose syntax
-    if docker-compose config > /dev/null 2>&1; then
+    if compose_cmd config > /dev/null 2>&1; then
         log_success "docker-compose.yml syntax is valid"
     else
         log_error "docker-compose.yml has syntax errors"
@@ -322,6 +385,7 @@ ${BLUE}Commands:${NC}
     check-prerequisites        Check if all required tools are installed
     health-check              Perform health checks on all services
     setup-jenkins-cli         Download and setup Jenkins CLI
+    fix-jenkins-docker        Start/fix Jenkins container with Docker CLI access
     trigger-build <job> <token>  Trigger a Jenkins build
     
     deploy [env]              Deploy to environment (dev/staging/prod)
@@ -340,6 +404,7 @@ ${BLUE}Commands:${NC}
 
 ${BLUE}Examples:${NC}
     ./jenkins-deploy.sh check-prerequisites
+    ./jenkins-deploy.sh fix-jenkins-docker
     ./jenkins-deploy.sh deploy dev
     ./jenkins-deploy.sh trigger-build zerohum-chaos-pipeline YOUR_API_TOKEN
     ./jenkins-deploy.sh logs controller
@@ -367,6 +432,9 @@ case "${1:-help}" in
         ;;
     setup-jenkins-cli)
         setup_jenkins_cli
+        ;;
+    fix-jenkins-docker)
+        fix_jenkins_docker
         ;;
     trigger-build)
         trigger_jenkins_build "$2" "$3"
