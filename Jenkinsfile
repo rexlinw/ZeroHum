@@ -34,7 +34,7 @@ pipeline {
                     echo "Git Commit: ${GIT_COMMIT_SHORT}"
                     echo "Git Branch: ${GIT_BRANCH}"
                     
-                    docker-compose build
+                    docker compose build
                 '''
             }
         }
@@ -46,13 +46,13 @@ pipeline {
                     echo "Testing Python applications..."
                     
                     # Test stable app
-                    docker-compose run --rm app-stable python -m pytest app.py -v || true
+                    docker compose run --rm app-stable python -m pytest app.py -v || true
                     
                     # Test buggy app
-                    docker-compose run --rm app-buggy python -m pytest app.py -v || true
+                    docker compose run --rm app-buggy python -m pytest app.py -v || true
                     
                     # Test chaos engine
-                    docker-compose run --rm controller python -m pytest ../chaos_engine/ -v || true
+                    docker compose run --rm controller python -m pytest ../chaos_engine/ -v || true
                 '''
             }
         }
@@ -65,16 +65,16 @@ pipeline {
                 echo '🚀 Deploying to Development...'
                 sh '''
                     echo "Stopping existing containers..."
-                    docker-compose down || true
+                    docker compose down || true
                     
                     echo "Starting services in development mode..."
-                    docker-compose up -d
+                    docker compose up -d
                     
                     echo "Waiting for services to stabilize..."
                     sleep 30
                     
                     echo "Verifying deployment..."
-                    docker-compose ps
+                    docker compose ps
                 '''
             }
         }
@@ -87,11 +87,11 @@ pipeline {
                 echo '🚀 Deploying to Staging...'
                 sh '''
                     echo "Creating backup of current state..."
-                    docker-compose exec -T controller cp -r /app /app_backup || true
+                    docker compose exec -T controller cp -r /app /app_backup || true
                     
                     echo "Deploying new version..."
-                    docker-compose down || true
-                    docker-compose up -d
+                    docker compose down || true
+                    docker compose up -d
                     
                     echo "Waiting for services..."
                     sleep 30
@@ -110,14 +110,14 @@ pipeline {
                     echo "Creating production backup..."
                     BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
                     mkdir -p $BACKUP_DIR
-                    docker-compose logs > $BACKUP_DIR/docker-compose.log || true
+                    docker compose logs > $BACKUP_DIR/docker-compose.log || true
                     
                     echo "Performing health checks before deployment..."
                     curl -f http://localhost:5001/health || echo "Pre-deployment health check failed"
                     
                     echo "Deploying to production..."
-                    docker-compose down || true
-                    docker-compose up -d
+                    docker compose down || true
+                    docker compose up -d
                     
                     echo "Waiting for services..."
                     sleep 30
@@ -135,7 +135,7 @@ pipeline {
                 echo '🩺 Performing health checks...'
                 sh '''
                     echo "Checking container status..."
-                    docker-compose ps
+                    docker compose ps
                     
                     echo "Waiting for services to become healthy..."
                     sleep 10
@@ -169,7 +169,7 @@ pipeline {
                     docker network inspect zerohum-network > /dev/null && echo "✅ Network healthy" || echo "❌ Network issue"
                     
                     echo "Verifying volume mounts..."
-                    docker-compose exec -T controller ls -la /app || true
+                    docker compose exec -T controller ls -la /app || true
                 '''
             }
         }
@@ -182,10 +182,10 @@ pipeline {
                 echo '🧹 Cleaning up after failure...'
                 sh '''
                     echo "Collecting logs for debugging..."
-                    docker-compose logs > deployment_error_logs.txt || true
+                    docker compose logs > deployment_error_logs.txt || true
                     
                     echo "Stopping failed deployment..."
-                    docker-compose down || true
+                    docker compose down || true
                 '''
                 archiveArtifacts artifacts: 'deployment_error_logs.txt', allowEmptyArchive: true
             }
@@ -195,7 +195,7 @@ pipeline {
     post {
         always {
             echo '📋 Pipeline execution completed'
-            sh 'docker-compose ps || true'
+            sh 'docker compose ps || true'
         }
         success {
             echo '✅ Deployment successful!'
