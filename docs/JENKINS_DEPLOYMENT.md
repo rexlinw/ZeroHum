@@ -1,6 +1,6 @@
 # Jenkins Deployment Guide - ZEROHUM-CHAOS
 
-## 📋 Table of Contents
+##  Table of Contents
 1. [Prerequisites](#prerequisites)
 2. [Jenkins Setup](#jenkins-setup)
 3. [Step-by-Step Configuration](#step-by-step-configuration)
@@ -135,9 +135,9 @@ In your Jenkins Pipeline job:
 
 1. **Configure** → Scroll to **Build Triggers**
 2. Options:
-   - ✅ **Poll SCM**: `H/15 * * * *` (check every 15 min)
-   - ✅ **GitHub hook trigger**: (with webhook configured)
-   - ✅ **Build periodically**: `H H * * *` (daily builds)
+   -  **Poll SCM**: `H/15 * * * *` (check every 15 min)
+   -  **GitHub hook trigger**: (with webhook configured)
+   -  **Build periodically**: `H H * * *` (daily builds)
 
 ---
 
@@ -317,13 +317,13 @@ post {
     success {
         slackSend(
             color: 'good',
-            message: "✅ Deployment successful: ${env.BUILD_URL}"
+            message: " Deployment successful: ${env.BUILD_URL}"
         )
     }
     failure {
         slackSend(
             color: 'danger',
-            message: "❌ Deployment failed: ${env.BUILD_URL}"
+            message: " Deployment failed: ${env.BUILD_URL}"
         )
     }
 }
@@ -358,12 +358,12 @@ curl -X POST http://JENKINS-URL/job/zerohum-chaos-pipeline/buildWithParameters \
 
 Your deployment is successful when:
 
-- ✅ All 7 containers are running
-- ✅ All health checks pass
-- ✅ Dashboard is accessible
-- ✅ Prometheus collecting metrics
-- ✅ Zero deployment errors in logs
-- ✅ Smoke tests all pass
+-  All 7 containers are running
+-  All health checks pass
+-  Dashboard is accessible
+-  Prometheus collecting metrics
+-  Zero deployment errors in logs
+-  Smoke tests all pass
 
 ---
 
@@ -394,9 +394,9 @@ docker-compose logs --tail=100
 ---
 
 **Next Steps:**
-1. ✅ Install required Jenkins plugins
-2. ✅ Create new Pipeline job
-3. ✅ Configure Git repository
-4. ✅ Run first build
-5. ✅ Monitor deployment
-6. ✅ Access dashboard at http://localhost:8000
+1.  Install required Jenkins plugins
+2.  Create new Pipeline job
+3.  Configure Git repository
+4.  Run first build
+5.  Monitor deployment
+6.  Access dashboard at http://localhost:8000

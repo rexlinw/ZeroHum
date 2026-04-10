@@ -15,7 +15,7 @@ echo ""
 echo "[1/5] Checking prerequisites..."
 
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed"
+    echo " Docker is not installed"
     exit 1
 fi
 
@@ -24,19 +24,19 @@ if docker compose version > /dev/null 2>&1; then
 elif command -v docker-compose > /dev/null 2>&1; then
     COMPOSE_CMD="docker-compose"
 else
-    echo "❌ Docker Compose is not installed"
+    echo " Docker Compose is not installed"
     exit 1
 fi
 
-echo "✓ Docker found: $(docker --version)"
-echo "✓ Docker Compose found: $($COMPOSE_CMD version)"
+echo " Docker found: $(docker --version)"
+echo " Docker Compose found: $($COMPOSE_CMD version)"
 echo ""
 
 # Create data directory
 echo "[2/5] Creating data directory..."
 mkdir -p data
 chmod 777 data
-echo "✓ Data directory ready"
+echo " Data directory ready"
 echo ""
 
 # Build images
@@ -44,9 +44,9 @@ echo "[3/5] Building Docker images..."
 $COMPOSE_CMD build --no-cache
 
 if [ $? -eq 0 ]; then
-    echo "✓ Images built successfully"
+    echo " Images built successfully"
 else
-    echo "❌ Build failed"
+    echo " Build failed"
     exit 1
 fi
 echo ""
@@ -56,9 +56,9 @@ echo "[4/5] Starting services..."
 $COMPOSE_CMD up -d
 
 if [ $? -eq 0 ]; then
-    echo "✓ Services started"
+    echo " Services started"
 else
-    echo "❌ Failed to start services"
+    echo " Failed to start services"
     exit 1
 fi
 echo ""

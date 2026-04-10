@@ -1,6 +1,6 @@
 # Jenkins Deployment - Quick Start Guide
 
-## 🚀 5-Minute Setup
+##  5-Minute Setup
 
 This guide gets your ZEROHUM-CHAOS project deployed in Jenkins in 5 minutes.
 
@@ -15,7 +15,7 @@ cd /Users/DELL/Documents/Projects/Zerohum/DevOpsInProgress
 ./jenkins-deploy.sh check-prerequisites
 ```
 
-Expected output: All tools installed ✅
+Expected output: All tools installed 
 
 ---
 
@@ -190,7 +190,7 @@ curl -X POST http://localhost:8080/job/zerohum-chaos-pipeline/build \
 
 ---
 
-## 📊 What Happens During Pipeline Execution
+##  What Happens During Pipeline Execution
 
 The Jenkinsfile will execute these stages:
 
@@ -207,7 +207,7 @@ The Jenkinsfile will execute these stages:
 
 ---
 
-## 🔍 Monitoring Your Deployment
+##  Monitoring Your Deployment
 
 After deployment, access these services:
 
@@ -221,7 +221,7 @@ After deployment, access these services:
 
 ---
 
-## ✅ Success Checklist
+##  Success Checklist
 
 After running the pipeline, verify:
 
@@ -234,7 +234,7 @@ After running the pipeline, verify:
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Pipeline fails at "Build" stage
 
@@ -298,7 +298,7 @@ sleep 30
 
 ---
 
-## 🔐 Security Recommendations
+##  Security Recommendations
 
 1. **Change default Grafana password**:
    ```
@@ -320,7 +320,7 @@ sleep 30
 
 ---
 
-## 📚 Next Steps
+##  Next Steps
 
 1. **Enable Git webhook** for automatic builds on push:
    - GitHub → Settings → Webhooks
@@ -342,7 +342,7 @@ sleep 30
 
 ---
 
-## 📖 Complete Documentation
+##  Complete Documentation
 
 For detailed information, see:
 - **[JENKINS_DEPLOYMENT.md](JENKINS_DEPLOYMENT.md)** - Complete setup guide
@@ -386,4 +386,4 @@ docker network inspect zerohum-network  # Check networking
 
 ---
 
-**Ready to deploy? Start with Step 1 above and you'll have a working CI/CD pipeline in minutes! 🚀**
+**Ready to deploy? Start with Step 1 above and you'll have a working CI/CD pipeline in minutes! **

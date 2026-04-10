@@ -333,22 +333,22 @@ Failure → Detection → Decision → Execution → Recovery
 
 ### What Can It Detect?
 
-✅ Container crashes
-✅ Repeated failures
-✅ Health check failures
-✅ High error rates
-✅ Slow responses
-✅ Resource exhaustion
-✅ Service unavailability
+ Container crashes
+ Repeated failures
+ Health check failures
+ High error rates
+ Slow responses
+ Resource exhaustion
+ Service unavailability
 
 ### What Can It Do?
 
-✅ Restart containers
-✅ Rollback to previous versions
-✅ Scale services
-✅ Isolate problematic services
-✅ Log all actions
-✅ Report metrics
+ Restart containers
+ Rollback to previous versions
+ Scale services
+ Isolate problematic services
+ Log all actions
+ Report metrics
 
 ---
 
@@ -356,13 +356,13 @@ Failure → Detection → Decision → Execution → Recovery
 
 ### What It Does NOT Do
 
-❌ Fix application code bugs
-❌ Detect network failures external to containers
-❌ Optimize application performance
-❌ Handle data corruption
-❌ Manage persistent storage failover
-❌ Require internet connectivity
-❌ Use machine learning or complex algorithms
+ Fix application code bugs
+ Detect network failures external to containers
+ Optimize application performance
+ Handle data corruption
+ Manage persistent storage failover
+ Require internet connectivity
+ Use machine learning or complex algorithms
 
 ### Why These Limitations?
 

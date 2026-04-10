@@ -3,11 +3,11 @@
 ## What is ZEROHUM-CHAOS?
 
 ZEROHUM-CHAOS is a **completely autonomous self-healing DevOps system** that:
-- 🎯 Injects controlled failures (chaos engineering)
-- 🔍 Detects failures automatically
-- 🚀 Recovers without human intervention
-- 📊 Logs everything for analysis
-- 🎛️ Provides a web dashboard for testing
+-  Injects controlled failures (chaos engineering)
+-  Detects failures automatically
+-  Recovers without human intervention
+-  Logs everything for analysis
+-  Provides a web dashboard for testing
 
 **The complete system is containerized and runs locally.**
 
@@ -37,11 +37,11 @@ docker-compose up -d
 ```
 
 This starts:
-- ✅ Stable & Buggy Applications
-- ✅ Prometheus (metrics collection)
-- ✅ Grafana (visualization)
-- ✅ cAdvisor (container metrics)
-- ✅ Dashboard (web UI)
+-  Stable & Buggy Applications
+-  Prometheus (metrics collection)
+-  Grafana (visualization)
+-  cAdvisor (container metrics)
+-  Dashboard (web UI)
 
 ### Step 3: Wait for Services (30 seconds)
 
@@ -117,7 +117,7 @@ Duration: 2.34 seconds
 --- Phase 6: Verification ---
 Verifying system recovery...
 Final status: healthy
-✓ System successfully recovered!
+ System successfully recovered!
 
 === Test Completed: PASSED ===
 ```
@@ -126,7 +126,7 @@ Final status: healthy
 
 ## Key Components Explained
 
-### 📱 Dashboard (Port 8000)
+###  Dashboard (Port 8000)
 
 **What**: Web interface for running tests
 **Access**: http://localhost:8000
@@ -136,7 +136,7 @@ Final status: healthy
 - Results visualization
 - System status monitoring
 
-### 🟢 Stable App (Port 5001)
+###  Stable App (Port 5001)
 
 **What**: Production-ready Flask application
 **Access**: http://localhost:5001
@@ -145,7 +145,7 @@ Final status: healthy
 - 0% error rate
 - Used as rollback target
 
-### 🔴 Buggy App (Port 5002)
+###  Buggy App (Port 5002)
 
 **What**: Intentionally unstable application
 **Access**: http://localhost:5002
@@ -154,7 +154,7 @@ Final status: healthy
 - Simulates real-world problems
 - Used for chaos testing
 
-### 📊 Prometheus (Port 9090)
+###  Prometheus (Port 9090)
 
 **What**: Metrics collection system
 **Access**: http://localhost:9090
@@ -167,7 +167,7 @@ increase(http_requests_total{job="app-stable",status="200",path="/health"}[2m])
 time() - container_start_time{container_name="app-stable"}
 ```
 
-### 📈 Grafana (Port 3000)
+###  Grafana (Port 3000)
 
 **What**: Visualization dashboard
 **Access**: http://localhost:3000
@@ -190,7 +190,7 @@ time() - container_start_time{container_name="app-stable"}
 4. System restarts container
 5. Application recovered
 
-**Expected result**: ✅ PASSED
+**Expected result**:  PASSED
 
 **What it proves**: The system can detect and recover from complete service failure
 
@@ -204,7 +204,7 @@ time() - container_start_time{container_name="app-stable"}
 3. Multiple health checks fail
 4. Container is restarted
 
-**Expected result**: ✅ PASSED
+**Expected result**:  PASSED
 
 **What it proves**: Failure detection accuracy
 
@@ -218,7 +218,7 @@ time() - container_start_time{container_name="app-stable"}
 3. System detects crash loop
 4. System rolls back to stable version
 
-**Expected result**: ✅ PASSED
+**Expected result**:  PASSED
 
 **What it proves**: Intelligent version management and escalation
 
@@ -233,7 +233,7 @@ time() - container_start_time{container_name="app-stable"}
 4. Recovery action triggers
 5. Normal operation restored
 
-**Expected result**: ✅ PASSED
+**Expected result**:  PASSED
 
 **What it proves**: Resource-based monitoring and recovery
 
@@ -422,12 +422,12 @@ zerohum-chaos/
 - Our approach: Failure → Detection → Autonomous Fix → Recovery (seconds)
 
 **Key achievements**:
-✅ Zero human intervention required
-✅ Controlled failure injection
-✅ Intelligent decision making
-✅ Automatic recovery execution
-✅ Complete observability
-✅ Production-like architecture
+ Zero human intervention required
+ Controlled failure injection
+ Intelligent decision making
+ Automatic recovery execution
+ Complete observability
+ Production-like architecture
 
 ---
 
@@ -441,4 +441,4 @@ For detailed information:
 
 ---
 
-**Happy Testing!** 🚀
+**Happy Testing!** 

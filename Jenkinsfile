@@ -18,11 +18,11 @@ pipeline {
     stages {
         stage('Prerequisites') {
             steps {
-                echo '🔍 Verifying prerequisites...'
+                echo 'Verifying prerequisites...'
                 sh '''
                     echo "Checking Docker availability..."
                     if ! command -v docker >/dev/null 2>&1; then
-                        echo "❌ ERROR: Docker is not installed or not in PATH"
+                        echo "ERROR: Docker is not installed or not in PATH"
                         echo "For host Jenkins on macOS, add /usr/local/bin to Jenkins PATH or set PATH in pipeline environment"
                         echo "If Jenkins runs in Docker, start it with Docker CLI + socket access:"
                         echo "docker run -d --name jenkins -p 8080:8080 -p 50000:50000"
@@ -31,22 +31,22 @@ pipeline {
                         exit 1
                     fi
                     
-                    echo "✅ Docker found: $(docker --version)"
+                    echo "Docker found: $(docker --version)"
                     
                     echo "Checking Docker daemon..."
                     if ! docker info >/dev/null 2>&1; then
-                        echo "❌ ERROR: Docker daemon is not running or Jenkins cannot access it"
+                        echo "ERROR: Docker daemon is not running or Jenkins cannot access it"
                         echo "Ensure Docker is running and Jenkins can access /var/run/docker.sock"
                         exit 1
                     fi
-                    echo "✅ Docker daemon is accessible"
+                    echo " Docker daemon is accessible"
                 '''
             }
         }
         
         stage('Checkout') {
             steps {
-                echo '🔄 Checking out source code...'
+                echo ' Checking out source code...'
                 checkout scm
                 script {
                     env.GIT_COMMIT_SHORT = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
@@ -57,7 +57,7 @@ pipeline {
         
         stage('Build') {
             steps {
-                echo '🏗️ Building Docker images...'
+                echo ' Building Docker images...'
                 sh '''
                     echo "Build Date: $(date)"
                     echo "Git Commit: ${GIT_COMMIT_SHORT}"
@@ -70,7 +70,7 @@ pipeline {
         
         stage('Unit Tests') {
             steps {
-                echo '🧪 Running unit tests...'
+                echo ' Running unit tests...'
                 sh '''
                     echo "Testing Python applications..."
                     
@@ -91,7 +91,7 @@ pipeline {
                 branch 'develop'
             }
             steps {
-                echo '🚀 Deploying to Development...'
+                echo ' Deploying to Development...'
                 sh '''
                     echo "Stopping existing containers..."
                     docker compose down || true
@@ -113,7 +113,7 @@ pipeline {
                 branch 'staging'
             }
             steps {
-                echo '🚀 Deploying to Staging...'
+                echo ' Deploying to Staging...'
                 sh '''
                     echo "Creating backup of current state..."
                     docker compose exec -T controller cp -r /app /app_backup || true
@@ -133,7 +133,7 @@ pipeline {
                 branch 'main'
             }
             steps {
-                echo '🚀 Deploying to Production...'
+                echo ' Deploying to Production...'
                 input 'Deploy to Production? (Click Proceed to continue)'
                 sh '''
                     echo "Creating production backup..."
@@ -161,7 +161,7 @@ pipeline {
         
         stage('Health Checks') {
             steps {
-                echo '🩺 Performing health checks...'
+                echo ' Performing health checks...'
                 sh '''
                     echo "Checking container status..."
                     docker compose ps
@@ -170,32 +170,32 @@ pipeline {
                     sleep 10
                     
                     echo "Testing stable app endpoint..."
-                    curl -f http://localhost:5001/health && echo "✅ Stable app healthy" || echo "❌ Stable app unhealthy"
+                    curl -f http://localhost:5001/health && echo " Stable app healthy" || echo " Stable app unhealthy"
                     
                     echo "Testing buggy app endpoint..."
-                    curl -f http://localhost:5002/health && echo "✅ Buggy app healthy" || echo "❌ Buggy app unhealthy"
+                    curl -f http://localhost:5002/health && echo " Buggy app healthy" || echo " Buggy app unhealthy"
                     
                     echo "Testing dashboard..."
-                    curl -f http://localhost:8000 && echo "✅ Dashboard accessible" || echo "⚠️ Dashboard not fully ready (expected at startup)"
+                    curl -f http://localhost:8000 && echo " Dashboard accessible" || echo " Dashboard not fully ready (expected at startup)"
                     
                     echo "Testing Prometheus..."
-                    curl -f http://localhost:9090/-/healthy && echo "✅ Prometheus healthy" || echo "❌ Prometheus unhealthy"
+                    curl -f http://localhost:9090/-/healthy && echo " Prometheus healthy" || echo " Prometheus unhealthy"
                     
                     echo "Testing Grafana..."
-                    curl -f http://localhost:3000/api/health && echo "✅ Grafana healthy" || echo "❌ Grafana unhealthy"
+                    curl -f http://localhost:3000/api/health && echo " Grafana healthy" || echo " Grafana unhealthy"
                 '''
             }
         }
         
         stage('Smoke Tests') {
             steps {
-                echo '🔥 Running smoke tests...'
+                echo ' Running smoke tests...'
                 sh '''
                     echo "Testing Prometheus metrics collection..."
-                    curl -s http://localhost:9090/api/v1/query?query=up | grep -q "success" && echo "✅ Metrics working" || echo "⚠️ Metrics query pending"
+                    curl -s http://localhost:9090/api/v1/query?query=up | grep -q "success" && echo " Metrics working" || echo " Metrics query pending"
                     
                     echo "Checking Docker network..."
-                    docker network inspect zerohum-network > /dev/null && echo "✅ Network healthy" || echo "❌ Network issue"
+                    docker network inspect zerohum-network > /dev/null && echo " Network healthy" || echo " Network issue"
                     
                     echo "Verifying volume mounts..."
                     docker compose exec -T controller ls -la /app || true
@@ -208,7 +208,7 @@ pipeline {
                 expression { currentBuild.result == 'FAILURE' }
             }
             steps {
-                echo '🧹 Cleaning up after failure...'
+                echo ' Cleaning up after failure...'
                 sh '''
                     echo "Collecting logs for debugging..."
                     docker compose logs > deployment_error_logs.txt || true
@@ -223,11 +223,11 @@ pipeline {
     
     post {
         always {
-            echo '📋 Pipeline execution completed'
+            echo ' Pipeline execution completed'
             sh 'command -v docker >/dev/null 2>&1 && docker compose ps || true'
         }
         success {
-            echo '✅ Deployment successful!'
+            echo ' Deployment successful!'
             script {
                 if (env.BRANCH_NAME == 'main') {
                     echo 'Notifying production deployment success'
@@ -235,7 +235,7 @@ pipeline {
             }
         }
         failure {
-            echo '❌ Deployment failed!'
+            echo ' Deployment failed!'
             sh '''
                 echo "Saving diagnostic information..."
                 docker compose logs > build_logs.txt 2>&1 || echo "Docker not available or no containers running" >> build_logs.txt

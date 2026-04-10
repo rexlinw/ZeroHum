@@ -61,9 +61,9 @@ brew install docker
 ### 4. **Configure Jenkins Pipeline**
 
 The updated Jenkinsfile now includes a `Prerequisites` stage that:
-- ✅ Checks if Docker command is available
-- ✅ Verifies Docker daemon is running
-- ✅ Provides clear error messages if either check fails
+-  Checks if Docker command is available
+-  Verifies Docker daemon is running
+-  Provides clear error messages if either check fails
 
 ### 5. **Troubleshooting Checklist**
 
