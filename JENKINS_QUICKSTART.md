@@ -238,7 +238,7 @@ After running the pipeline, verify:
 
 ### Pipeline fails at "Build" stage
 
-**Problem**: Docker images won't build
+**Problem**: Docker images won't build / `docker: command not found`
 
 **Solution**:
 ```bash
@@ -252,6 +252,10 @@ docker exec jenkins docker ps
 docker exec jenkins sudo usermod -aG docker jenkins
 docker restart jenkins
 ```
+
+**For comprehensive Docker configuration help**, see [JENKINS_DOCKER_SETUP.md](JENKINS_DOCKER_SETUP.md)
+
+The pipeline now includes a `Prerequisites` stage that verifies Docker is available before attempting to build.
 
 ### Port already in use
 
