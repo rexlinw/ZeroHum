@@ -15,6 +15,30 @@ pipeline {
     }
     
     stages {
+        stage('Prerequisites') {
+            steps {
+                echo '🔍 Verifying prerequisites...'
+                sh '''
+                    echo "Checking Docker availability..."
+                    if ! command -v docker &> /dev/null; then
+                        echo "❌ ERROR: Docker is not installed or not in PATH"
+                        echo "Please ensure Docker is installed and Jenkins has permission to use it"
+                        exit 1
+                    fi
+                    
+                    echo "✅ Docker found: $(docker --version)"
+                    
+                    echo "Checking Docker daemon..."
+                    if ! docker info &> /dev/null; then
+                        echo "❌ ERROR: Docker daemon is not running or Jenkins cannot access it"
+                        echo "Please start Docker and ensure Jenkins user is in docker group"
+                        exit 1
+                    fi
+                    echo "✅ Docker daemon is accessible"
+                '''
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 echo '🔄 Checking out source code...'
@@ -209,7 +233,7 @@ pipeline {
             echo '❌ Deployment failed!'
             sh '''
                 echo "Saving diagnostic information..."
-                docker-compose logs > build_logs.txt || true
+                docker compose logs > build_logs.txt 2>&1 || echo "Docker not available or no containers running" >> build_logs.txt
             '''
             archiveArtifacts artifacts: 'build_logs.txt', allowEmptyArchive: true
         }
